@@ -1,3 +1,4 @@
+import functools
 mining_reward = 10
 genesis_block = {'previous_hash': '', 'index': 0, 'transactions': []}
 blockchain = [genesis_block]
@@ -7,6 +8,7 @@ participants = {'Mykyta'}
 
 
 def get_last_block_value():
+
     if len(blockchain) < 1:
         return None
     return blockchain[-1]
@@ -22,16 +24,14 @@ def get_balance(participant):
     open_tx_sender = [tx['amount']
                       for tx in open_transactions if tx['sender'] == participant]
     tx_sender.append(open_tx_sender)
-    amount_sent = 0
-    for tx in tx_sender:
-        if len(tx) > 0:
-            amount_sent += tx[0]
+    amount_sent = functools.reduce(
+        lambda tx_sum, tx_amount: tx_sum + sum(tx_amount) if len(tx_amount) > 0 else tx_sum + 0, tx_sender, 0)
+
     tx_recipient = [[tx['amount'] for tx in block['transactions']
                      if tx['recipient'] == participant] for block in blockchain]
-    amount_received = 0
-    for tx in tx_recipient:
-        if len(tx) > 0:
-            amount_received += tx[0]
+    amount_received = functools.reduce(
+        lambda tx_sum, tx_amount: tx_sum + sum(tx_amount) if len(tx_amount) > 0 else tx_sum + 0, tx_recipient, 0)
+
     return amount_received - amount_sent
 
 
@@ -58,9 +58,10 @@ def mine_block():
         'recipient': owner,
         'amount': mining_reward
     }
-    open_transactions.append(reward_transaction)
+    copied_transactions = open_transactions[:]
+    copied_transactions.append(reward_transaction)
     block = {'previous_hash': block_hash, 'index': len(
-        blockchain), 'transactions': open_transactions}
+        blockchain), 'transactions': copied_transactions}
     blockchain.append(block)
     return True
 
@@ -93,6 +94,10 @@ def verify_chain():
     return True
 
 
+def verify_transactions():
+    return all([verify_transaction(tx) for tx in open_transactions])
+
+
 waiting_for_input = True
 
 
@@ -104,6 +109,7 @@ while waiting_for_input:
     print('4: Quit  ')
     print('5: Mine new block  ')
     print('6: Output participants  ')
+    print('7: Check transaction validity  ')
 
     user_choice = get_user_choice()
 
@@ -128,11 +134,16 @@ while waiting_for_input:
             open_transactions = []
     elif user_choice == '6':
         print(participants)
+    elif user_choice == '7':
+        if verify_transactions():
+            print('Transactions are valid')
+        else:
+            print('Invalid transactions')
     else:
         print('Invalid input')
     if not verify_chain():
         print('Invalid block')
         break
-    print(get_balance('Mykyta'))
+    print('{}\'s balance: {:5.2f}'.format(owner, get_balance(owner)))
 else:
     print('User left')
