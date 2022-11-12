@@ -1,6 +1,9 @@
 import functools
+import json
+import hashlib
 mining_reward = 10
-genesis_block = {'previous_hash': '', 'index': 0, 'transactions': []}
+genesis_block = {'previous_hash': '', 'index': 0,
+                 'transactions': [], 'proof': '100'}
 blockchain = [genesis_block]
 open_transactions = []
 owner = 'Mykyta'
@@ -15,7 +18,23 @@ def get_last_block_value():
 
 
 def hash_block(block):
-    return '-'.join([str(block[key]) for key in block])
+    return hashlib.sha256(json.dumps(block).encode()).hexdigest()
+
+
+def valid_proof(transactions, last_hash, proof):
+    guessed_hash = (str(transactions) + str(last_hash) + str(proof)).encode()
+    new_hash = hashlib.sha256(guessed_hash).hexdigest()
+    print(new_hash)
+    return new_hash[0:2] == '00'
+
+
+def pow():
+    last_block = blockchain[-1]
+    last_hash = hash_block(last_block)
+    proof = 0
+    while not valid_proof(open_transactions, last_hash, proof):
+        proof += 1
+    return proof
 
 
 def get_balance(participant):
@@ -53,6 +72,7 @@ def verify_transaction(transaction):
 def mine_block():
     last_block = blockchain[-1]
     block_hash = hash_block(last_block)
+    proof = pow()
     reward_transaction = {
         'sender': 'mining',
         'recipient': owner,
@@ -61,7 +81,7 @@ def mine_block():
     copied_transactions = open_transactions[:]
     copied_transactions.append(reward_transaction)
     block = {'previous_hash': block_hash, 'index': len(
-        blockchain), 'transactions': copied_transactions}
+        blockchain), 'transactions': copied_transactions, 'proof': proof}
     blockchain.append(block)
     return True
 
@@ -90,6 +110,9 @@ def verify_chain():
         if index == 0:
             continue
         if block['previous_hash'] != hash_block(blockchain[index - 1]):
+            return False
+        if not valid_proof(block['transactions'][:-1], block['previous_hash'], block['proof']):
+            print('POW Invalid')
             return False
     return True
 
